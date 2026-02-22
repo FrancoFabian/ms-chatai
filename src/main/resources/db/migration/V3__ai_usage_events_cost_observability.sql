@@ -1,0 +1,19 @@
+ALTER TABLE ai_usage_events
+    ADD COLUMN IF NOT EXISTS flow VARCHAR(64) NOT NULL DEFAULT 'unknown',
+    ADD COLUMN IF NOT EXISTS endpoint VARCHAR(128) NOT NULL DEFAULT 'unknown',
+    ADD COLUMN IF NOT EXISTS prompt_version VARCHAR(32) NOT NULL DEFAULT 'v1',
+    ADD COLUMN IF NOT EXISTS normalization_mode VARCHAR(32) NOT NULL DEFAULT 'none',
+    ADD COLUMN IF NOT EXISTS max_tokens_applied INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS input_chars INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS output_chars INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS truncated BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS fallback_mode VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS cache_hit BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS cache_bypass_budget_mismatch BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS temperature_applied NUMERIC(6, 3) NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_ai_usage_events_flow_created_at
+    ON ai_usage_events (flow, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_ai_usage_events_cache_hit
+    ON ai_usage_events (cache_hit);

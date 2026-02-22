@@ -1,0 +1,33 @@
+# Build output
+target
+build
+
+# Maven / Gradle local caches
+.mvn/wrapper/maven-wrapper.jar.backup
+.gradle
+
+# VCS
+.git
+.gitignore
+
+# IDE/editor
+.idea
+.vscode
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Environment and secrets
+.env
+.env.*
+infra/env
+
+# Misc
+tmp
+*.swp

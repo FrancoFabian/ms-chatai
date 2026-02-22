@@ -1,0 +1,144 @@
+spring:
+    application:
+        name: ms-chatai
+
+    profiles:
+        active: ${SPRING_PROFILES_ACTIVE:local}
+
+    jackson:
+        serialization:
+            write-dates-as-timestamps: false
+    mvc:
+        async:
+            request-timeout: ${HTTP_READ_TIMEOUT_MS:15000}
+    servlet:
+        multipart:
+            max-file-size: ${MAX_UPLOAD_MB:10}MB
+            max-request-size: ${MAX_UPLOAD_MB:10}MB
+
+    datasource:
+        driver-class-name: org.postgresql.Driver
+        url: ${JDBC_URL:jdbc:postgresql://localhost:55432/ms_chatai}
+        username: ${JDBC_USER:chatai}
+        password: ${JDBC_PASSWORD:chatai_dev_password}
+        hikari:
+            maximum-pool-size: ${DB_POOL_MAX:10}
+            minimum-idle: ${DB_POOL_MIN:2}
+            connection-timeout: ${DB_CONN_TIMEOUT_MS:5000}
+            idle-timeout: ${DB_IDLE_TIMEOUT_MS:600000}
+            max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
+
+    jpa:
+        open-in-view: false
+        hibernate:
+            ddl-auto: ${JPA_DDL_AUTO:validate}
+        properties:
+            hibernate:
+                dialect: org.hibernate.dialect.PostgreSQLDialect
+                format_sql: false
+        show-sql: ${JPA_SHOW_SQL:false}
+
+    flyway:
+        enabled: true
+        locations: classpath:db/migration
+        baseline-on-migrate: true
+
+    ai:
+        openai:
+            api-key: ${OPENAI_API_KEY:}
+            base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+            chat:
+                options:
+                    model: ${OPENAI_MODEL:gpt-4o-mini}
+                    temperature: ${OPENAI_TEMPERATURE:0.2}
+                    max-tokens: ${OPENAI_MAX_TOKENS:400}
+
+server:
+    port: ${PORT:8080}
+    shutdown: graceful
+    compression:
+        enabled: true
+    error:
+        include-message: always
+
+app:
+    cors:
+        allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+        allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,DELETE,OPTIONS}
+        allowed-headers: ${CORS_ALLOWED_HEADERS:Authorization,Content-Type,X-Request-Id}
+        exposed-headers: ${CORS_EXPOSED_HEADERS:X-Request-Id}
+        allow-credentials: ${CORS_ALLOW_CREDENTIALS:false}
+
+    auth:
+        token:
+            required: ${AUTH_TOKEN_REQUIRED:true}
+            public-key-pem: ${AUTH_PUBLIC_KEY_PEM:}
+            accepted-scopes: ${AUTH_ACCEPTED_SCOPES:feedback_chat}
+            clock-skew-seconds: ${AUTH_CLOCK_SKEW_SECONDS:60}
+
+    rate-limit:
+        enabled: ${RATE_LIMIT_ENABLED:true}
+        requests-per-minute: ${RATE_LIMIT_RPM:30}
+        burst: ${RATE_LIMIT_BURST:10}
+
+    limits:
+        max-user-message-chars: ${MAX_USER_MESSAGE_CHARS:2000}
+        max-context-chars: ${MAX_CONTEXT_CHARS:4000}
+
+    http:
+        connect-timeout-ms: ${HTTP_CONNECT_TIMEOUT_MS:3000}
+        read-timeout-ms: ${HTTP_READ_TIMEOUT_MS:15000}
+
+    media:
+        root: ${MEDIA_ROOT:/data/uploads}
+        public-path: ${MEDIA_PUBLIC_PATH:/media}
+        public-base-url: ${PUBLIC_BASE_URL:http://localhost}
+        max-upload-mb: ${MAX_UPLOAD_MB:10}
+
+    ai:
+        flow:
+            feedback-chat:
+                max-tokens: ${AI_FLOW_FEEDBACK_CHAT_MAX_TOKENS:220}
+            improve-message:
+                max-tokens: ${AI_FLOW_IMPROVE_MESSAGE_MAX_TOKENS:140}
+        normalization:
+            mode: ${AI_NORMALIZATION_MODE:balanced}
+            strip-markdown: ${AI_NORMALIZATION_STRIP_MARKDOWN:false}
+            strip-html: ${AI_NORMALIZATION_STRIP_HTML:false}
+            max-input-chars:
+                feedback-chat: ${AI_MAX_INPUT_CHARS_FEEDBACK_CHAT:1800}
+                improve-message: ${AI_MAX_INPUT_CHARS_IMPROVE_MESSAGE:1400}
+        cache:
+            improve-message:
+                enabled: ${AI_CACHE_IMPROVE_MESSAGE_ENABLED:true}
+                ttl-seconds: ${AI_CACHE_IMPROVE_MESSAGE_TTL_SECONDS:60}
+                max-entries: ${AI_CACHE_IMPROVE_MESSAGE_MAX_ENTRIES:1000}
+        pricing:
+            default:
+                input-per-1m-usd: ${AI_PRICE_DEFAULT_INPUT_PER_1M_USD:0.150}
+                cached-input-per-1m-usd: ${AI_PRICE_DEFAULT_CACHED_INPUT_PER_1M_USD:0.000}
+                output-per-1m-usd: ${AI_PRICE_DEFAULT_OUTPUT_PER_1M_USD:0.600}
+            gpt-5-mini:
+                input-per-1m-usd: ${AI_PRICE_GPT5MINI_INPUT_PER_1M_USD:0.250}
+                cached-input-per-1m-usd: ${AI_PRICE_GPT5MINI_CACHED_INPUT_PER_1M_USD:0.025}
+                output-per-1m-usd: ${AI_PRICE_GPT5MINI_OUTPUT_PER_1M_USD:2.000}
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: "health,info,metrics,prometheus"
+    endpoint:
+        health:
+            show-details: when_authorized
+    health:
+        probes:
+            enabled: true
+
+logging:
+    level:
+        root: INFO
+        org.springframework.web: INFO
+        org.springframework.ai: WARN
+    pattern:
+        console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{requestId}] %logger{36} - %msg%n"
