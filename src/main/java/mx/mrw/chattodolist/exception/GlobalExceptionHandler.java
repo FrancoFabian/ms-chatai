@@ -3,6 +3,8 @@ package mx.mrw.chattodolist.exception;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -19,8 +21,17 @@ import mx.mrw.chattodolist.support.RequestContext;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(ApiException exception, HttpServletRequest request) {
+        if (exception.getStatus().is5xxServerError()) {
+            LOGGER.error("API exception requestId={} code={} message={}",
+                    requestId(request),
+                    exception.getErrorCode(),
+                    exception.getMessage(),
+                    exception);
+        }
         String message = "AI_NOT_CONFIGURED".equals(exception.getErrorCode()) ? null : exception.getMessage();
         ErrorResponse body = new ErrorResponse(
                 requestId(request),
@@ -74,6 +85,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnhandledException(Exception exception, HttpServletRequest request) {
+        LOGGER.error("Unhandled exception requestId={}", requestId(request), exception);
         ErrorResponse body = new ErrorResponse(
                 requestId(request),
                 "INTERNAL_ERROR",
