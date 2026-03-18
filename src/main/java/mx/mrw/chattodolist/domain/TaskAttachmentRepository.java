@@ -9,5 +9,9 @@ public interface TaskAttachmentRepository extends JpaRepository<TaskAttachmentEn
 
     List<TaskAttachmentEntity> findByTaskIdOrderByCreatedAtDesc(String taskId);
 
+    List<TaskAttachmentEntity> findByTaskIdInOrderByCreatedAtDesc(List<String> taskIds);
+
+    long deleteByIdAndTaskId(UUID id, String taskId);
+
     void deleteByTaskId(String taskId);
 }

@@ -20,6 +20,12 @@ public class TaskEntity {
     @Column(name = "task_id", nullable = false, unique = true, length = 128)
     private String taskId;
 
+    @Column(nullable = false, length = 128)
+    private String subject;
+
+    @Column(nullable = false, length = 240)
+    private String title;
+
     @Column(nullable = false, length = 1000)
     private String route;
 
@@ -37,6 +43,9 @@ public class TaskEntity {
 
     @Column(nullable = false, length = 16)
     private String priority;
+
+    @Column(nullable = false, length = 16)
+    private String status;
 
     @Column(name = "user_name", length = 120)
     private String userName;
@@ -59,6 +68,9 @@ public class TaskEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
     @PrePersist
     void onCreate() {
         if (id == null) {
@@ -66,6 +78,9 @@ public class TaskEntity {
         }
         if (createdAt == null) {
             createdAt = Instant.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = createdAt;
         }
     }
 
@@ -83,6 +98,22 @@ public class TaskEntity {
 
     public void setTaskId(String taskId) {
         this.taskId = taskId;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getRoute() {
@@ -131,6 +162,14 @@ public class TaskEntity {
 
     public void setPriority(String priority) {
         this.priority = priority;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getUserName() {
@@ -187,5 +226,13 @@ public class TaskEntity {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

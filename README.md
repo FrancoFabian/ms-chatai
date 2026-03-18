@@ -23,6 +23,7 @@ Valores por default (`ms-chatai-postgres/docker-compose.yml`):
 Necesarias:
 - `OPENAI_API_KEY`
 - `AUTH_PUBLIC_KEY_PEM` (public key Ed25519 PEM, usada para validar `Authorization: Bearer <token>`)
+- `AUTH_SERVICE_TOKEN` (opcional, bearer estatico compartido para clientes server-side como Next/Tauri)
 - `JDBC_URL` (default `jdbc:postgresql://localhost:55432/ms_chatai`)
 - `JDBC_USER` (default `chatai`)
 - `JDBC_PASSWORD` (default `chatai_dev_password`)
@@ -30,6 +31,7 @@ Necesarias:
 Opcionales comunes:
 - `OPENAI_MODEL` (default `gpt-4o-mini`)
 - `AUTH_ACCEPTED_SCOPES` (default `feedback_chat`)
+- `AUTH_SERVICE_SUBJECT` (default `service-client`)
 - `RATE_LIMIT_RPM` (default `30`)
 - `RATE_LIMIT_BURST` (default `10`)
 - `CORS_ALLOWED_ORIGINS` (default `http://localhost:3000`)
@@ -59,6 +61,19 @@ Health:
 ```bash
 curl http://localhost:8080/actuator/health
 ```
+
+## 3.1) Modos de autenticacion soportados
+
+Puedes usar cualquiera de estos dos modos:
+
+1. JWT Ed25519:
+- Backend valida `Authorization: Bearer <jwt>` usando `AUTH_PUBLIC_KEY_PEM`.
+- Recomendado cuando ya tienes un emisor de tokens.
+
+2. Service token compartido:
+- Backend valida `Authorization: Bearer <token>` comparandolo con `AUTH_SERVICE_TOKEN`.
+- Recomendado para `isp-dashboard` (proxy server-side Next) e `isp-admin` (proxy Tauri) en despliegues on-prem.
+- En este modo, el frontend server-side o desktop debe enviar el mismo valor por `FEEDBACK_CHAT_BACKEND_TOKEN`.
 
 ## 4) Probar endpoints con curl
 

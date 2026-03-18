@@ -1,6 +1,7 @@
 package mx.mrw.chattodolist.service;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -135,7 +136,7 @@ public class ChatTaskService {
                 throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "AI_INVALID_RESPONSE", "AI response is not valid JSON");
             }
         }
-        persistTask(request, parsed.reply(), parsed.questions(), modelCall.model());
+        persistTask(subject, request, parsed.reply(), parsed.questions(), modelCall.model());
 
         UsageMetrics usage = aiTelemetryService.track(new AiUsageTrackInput(
                 requestId,
@@ -550,21 +551,27 @@ public class ChatTaskService {
     }
 
     @Transactional
-    private void persistTask(FeedbackChatRequest request, String reply, List<String> questions, String modelUsed) {
+    private void persistTask(String subject, FeedbackChatRequest request, String reply, List<String> questions, String modelUsed) {
         TaskEntity task = taskRepository.findByTaskId(request.taskId()).orElseGet(TaskEntity::new);
         task.setTaskId(request.taskId());
+        task.setSubject(subject);
+        task.setTitle(deriveTaskTitle(request.message()));
         task.setRoute(request.route());
         task.setSectionTag(request.sectionTag());
         task.setRole(request.role());
         task.setRoleTag(request.roleTag());
         task.setTaskType(request.taskType());
         task.setPriority(request.priority());
+        if (!StringUtils.hasText(task.getStatus())) {
+            task.setStatus("OPEN");
+        }
         task.setUserName(request.userName());
         task.setGeneralMode(request.isGeneralMode());
         task.setUserMessage(request.message());
         task.setAssistantReply(questions.isEmpty() ? reply : reply + "\n" + String.join("\n", questions));
         task.setAiProvider(PROVIDER);
         task.setAiModel(modelUsed);
+        task.setUpdatedAt(Instant.now());
         taskRepository.save(task);
 
         taskAttachmentRepository.deleteByTaskId(request.taskId());
@@ -581,6 +588,21 @@ public class ChatTaskService {
             entity.setSizeBytes(attachment.size());
             taskAttachmentRepository.save(entity);
         }
+    }
+
+    private String deriveTaskTitle(String message) {
+        if (!StringUtils.hasText(message)) {
+            return "Untitled task";
+        }
+        String trimmed = message.trim();
+        if (trimmed.length() <= 60) {
+            return trimmed;
+        }
+        int split = trimmed.substring(0, 60).lastIndexOf(' ');
+        if (split > 30) {
+            return trimmed.substring(0, split) + "...";
+        }
+        return trimmed.substring(0, 60) + "...";
     }
 
     private void validateAttachment(TaskAttachmentInput attachment) {
