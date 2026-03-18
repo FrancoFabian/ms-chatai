@@ -36,14 +36,17 @@ public class FeedbackTaskService {
     private final TaskRepository taskRepository;
     private final TaskAttachmentRepository taskAttachmentRepository;
     private final TaskDevNoteRepository taskDevNoteRepository;
+    private final MediaStorageService mediaStorageService;
 
     public FeedbackTaskService(
             TaskRepository taskRepository,
             TaskAttachmentRepository taskAttachmentRepository,
-            TaskDevNoteRepository taskDevNoteRepository) {
+            TaskDevNoteRepository taskDevNoteRepository,
+            MediaStorageService mediaStorageService) {
         this.taskRepository = taskRepository;
         this.taskAttachmentRepository = taskAttachmentRepository;
         this.taskDevNoteRepository = taskDevNoteRepository;
+        this.mediaStorageService = mediaStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -173,7 +176,8 @@ public class FeedbackTaskService {
                 attachment.getMediaPath(),
                 attachment.getMimeType(),
                 attachment.getSizeBytes(),
-                attachment.getCreatedAt());
+                attachment.getCreatedAt(),
+                mediaStorageService.publicUrlFor(attachment.getMediaPath()));
     }
 
     private TaskDevNoteResponse mapDevNote(TaskDevNoteEntity note) {

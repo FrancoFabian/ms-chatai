@@ -8,5 +8,6 @@ public record TaskAttachmentResponse(
         String mediaPath,
         String mimeType,
         long sizeBytes,
-        Instant createdAt) {
+        Instant createdAt,
+        String url) {
 }

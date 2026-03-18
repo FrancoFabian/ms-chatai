@@ -43,14 +43,17 @@ public class ChatHistoryService {
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatMessageAttachmentRepository chatMessageAttachmentRepository;
+    private final MediaStorageService mediaStorageService;
 
     public ChatHistoryService(
             ChatSessionRepository chatSessionRepository,
             ChatMessageRepository chatMessageRepository,
-            ChatMessageAttachmentRepository chatMessageAttachmentRepository) {
+            ChatMessageAttachmentRepository chatMessageAttachmentRepository,
+            MediaStorageService mediaStorageService) {
         this.chatSessionRepository = chatSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.chatMessageAttachmentRepository = chatMessageAttachmentRepository;
+        this.mediaStorageService = mediaStorageService;
     }
 
     @Transactional(readOnly = true)
@@ -220,7 +223,8 @@ public class ChatHistoryService {
                     .add(new ChatMessageAttachmentResponse(
                             attachment.getMediaPath(),
                             attachment.getMimeType(),
-                            attachment.getSizeBytes()));
+                            attachment.getSizeBytes(),
+                            mediaStorageService.publicUrlFor(attachment.getMediaPath())));
         }
         return byMessage;
     }
@@ -259,7 +263,8 @@ public class ChatHistoryService {
             responses.add(new ChatMessageAttachmentResponse(
                     entity.getMediaPath(),
                     entity.getMimeType(),
-                    entity.getSizeBytes()));
+                    entity.getSizeBytes(),
+                    mediaStorageService.publicUrlFor(entity.getMediaPath())));
         }
         return responses;
     }

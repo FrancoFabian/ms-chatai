@@ -47,7 +47,7 @@ class ChatHistoryControllerTest {
                 "USER",
                 "Hola",
                 "TASK-1",
-                List.of(new ChatMessageAttachmentResponse("u/2026/02/abc.png", "image/png", 1024)));
+                List.of(new ChatMessageAttachmentResponse("u/2026/02/abc.png", "image/png", 1024, "http://localhost/media/u/2026/02/abc.png")));
         ChatSessionResponse session = new ChatSessionResponse(
                 "SES-001",
                 "Sesion 1",

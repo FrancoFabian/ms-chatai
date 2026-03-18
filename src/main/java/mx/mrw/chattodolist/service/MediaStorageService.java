@@ -78,6 +78,13 @@ public class MediaStorageService {
         return new MediaCapabilities(true, Math.max(1, mediaProperties.getMaxUploadMb()), publicPath);
     }
 
+    public String publicUrlFor(String mediaPath) {
+        if (!StringUtils.hasText(mediaPath)) {
+            return null;
+        }
+        return publicUrl(mediaPath.trim());
+    }
+
     private byte[] readSignature(MultipartFile file) {
         try (InputStream inputStream = file.getInputStream()) {
             byte[] signature = inputStream.readNBytes(MAX_SIGNATURE_SIZE);
