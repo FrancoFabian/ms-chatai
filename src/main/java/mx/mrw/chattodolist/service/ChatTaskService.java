@@ -7,12 +7,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openaisdk.OpenAiSdkChatModel;
 import org.springframework.ai.openaisdk.OpenAiSdkChatOptions;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -37,10 +40,13 @@ import mx.mrw.chattodolist.exception.ApiException;
 @Service
 public class ChatTaskService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ChatTaskService.class);
     private static final String PROVIDER = "openai";
+    private static final String OPENAI_API_OPERATION = "chat.completions.create";
     private static final Set<String> ALLOWED_ATTACHMENT_MIME = Set.of("image/png", "image/jpeg", "image/webp");
 
     private final ChatClient chatClient;
+    private final ObjectProvider<OpenAiSdkChatModel> openAiSdkChatModelProvider;
     private final TaskRepository taskRepository;
     private final TaskAttachmentRepository taskAttachmentRepository;
     private final ObjectMapper objectMapper;
@@ -54,10 +60,11 @@ public class ChatTaskService {
 
     private final String openAiApiKey;
     private final String defaultModel;
-    private final double temperature;
+    private final double defaultTemperature;
 
     public ChatTaskService(
             ChatClient.Builder chatClientBuilder,
+            ObjectProvider<OpenAiSdkChatModel> openAiSdkChatModelProvider,
             TaskRepository taskRepository,
             TaskAttachmentRepository taskAttachmentRepository,
             ObjectMapper objectMapper,
@@ -70,8 +77,9 @@ public class ChatTaskService {
             ImproveMessageCache improveMessageCache,
             @Value("${spring.ai.openai.api-key:}") String openAiApiKey,
             @Value("${spring.ai.openai.chat.options.model:gpt-4o-mini}") String model,
-            @Value("${spring.ai.openai.chat.options.temperature:0.2}") double temperature) {
+            @Value("${app.ai.default-temperature:${OPENAI_TEMPERATURE:0.2}}") double defaultTemperature) {
         this.chatClient = chatClientBuilder.build();
+        this.openAiSdkChatModelProvider = openAiSdkChatModelProvider;
         this.taskRepository = taskRepository;
         this.taskAttachmentRepository = taskAttachmentRepository;
         this.objectMapper = objectMapper;
@@ -84,7 +92,7 @@ public class ChatTaskService {
         this.improveMessageCache = improveMessageCache;
         this.openAiApiKey = openAiApiKey;
         this.defaultModel = model;
-        this.temperature = temperature;
+        this.defaultTemperature = defaultTemperature;
     }
 
     public ChatTaskResult process(FeedbackChatRequest request, String subject, String requestId) {
@@ -191,7 +199,7 @@ public class ChatTaskService {
                 selectedModel,
                 promptVersion,
                 normalizedMessage.normalizationMode(),
-                temperature);
+                resolveEffectiveTemperature(selectedModel));
         ImproveMessageCache.CacheResult cacheResult = improveMessageCache.get(cacheKey);
         if (cacheResult.hit()) {
             UsageMetrics usageFromCache = aiTelemetryService.track(new AiUsageTrackInput(
@@ -213,7 +221,7 @@ public class ChatTaskService {
                     "NONE",
                     true,
                     false,
-                    temperature,
+                    resolveEffectiveTemperature(selectedModel),
                     null));
             return new ImproveMessageResult(cacheResult.value(), PROVIDER, selectedModel, usageFromCache);
         }
@@ -624,19 +632,26 @@ public class ChatTaskService {
 
     private ModelCallResult callModel(AiFlow flow, String systemPrompt, String userPrompt, String selectedModel) {
         int maxTokens = resolveMaxTokens(flow);
-        OpenAiSdkChatOptions options = OpenAiSdkChatOptions.builder()
-            .model(selectedModel)
-            .temperature(temperature)
-            .timeout(Duration.ofMillis(httpProperties.getReadTimeoutMs()))
-            .responseFormat(OpenAiSdkChatModel.ResponseFormat.builder()
-                .type(OpenAiSdkChatModel.ResponseFormat.Type.JSON_OBJECT)
-                .build())
-            .build();
+        OpenAiSdkChatOptions requestOptions = buildRequestOptions(selectedModel, maxTokens);
+        OpenAiSdkChatOptions defaultOptions = resolveDefaultOptions();
+        OpenAiSdkChatOptions mergedOptions = mergeOptions(defaultOptions, requestOptions);
+        double appliedTemperature = resolveEffectiveTemperature(selectedModel);
+
+        logger.info(
+                "AI runtime request flow={} provider={} api={} baseUrl={} model={} defaultOptions={} requestOptions={} mergedOptions={}",
+                flow.flowName(),
+                PROVIDER,
+                OPENAI_API_OPERATION,
+                mergedOptions.getBaseUrl(),
+                selectedModel,
+                summarizeOptions(defaultOptions),
+                summarizeOptions(requestOptions),
+                summarizeOptions(mergedOptions));
 
         ResponseEntity<ChatResponse, String> responseEntity = chatClient.prompt()
             .system(systemPrompt)
             .user(userPrompt)
-            .options(options)
+            .options(requestOptions)
             .call()
             .responseEntity(String.class);
 
@@ -661,10 +676,84 @@ public class ChatTaskService {
                 usage,
                 finishReason,
                 maxTokens,
-                temperature,
+                appliedTemperature,
                 inputChars,
                 content.length(),
                 flow.promptVersion());
+    }
+
+    private OpenAiSdkChatOptions buildRequestOptions(String selectedModel, int maxTokens) {
+        OpenAiSdkChatOptions.Builder builder = OpenAiSdkChatOptions.builder()
+                .model(selectedModel)
+                .timeout(Duration.ofMillis(httpProperties.getReadTimeoutMs()))
+                .responseFormat(OpenAiSdkChatModel.ResponseFormat.builder()
+                        .type(OpenAiSdkChatModel.ResponseFormat.Type.JSON_OBJECT)
+                        .build());
+
+        if (usesMaxCompletionTokens(selectedModel)) {
+            builder.maxCompletionTokens(maxTokens);
+        }
+        else {
+            builder.maxTokens(maxTokens);
+        }
+
+        if (supportsCustomTemperature(selectedModel)) {
+            builder.temperature(defaultTemperature);
+        }
+
+        return builder.build();
+    }
+
+    private OpenAiSdkChatOptions resolveDefaultOptions() {
+        OpenAiSdkChatModel chatModel = openAiSdkChatModelProvider.getIfAvailable();
+        if (chatModel == null || chatModel.getOptions() == null) {
+            return null;
+        }
+        return chatModel.getOptions().copy();
+    }
+
+    private OpenAiSdkChatOptions mergeOptions(OpenAiSdkChatOptions defaultOptions, OpenAiSdkChatOptions requestOptions) {
+        if (defaultOptions == null) {
+            return requestOptions;
+        }
+        return OpenAiSdkChatOptions.builder()
+                .from(defaultOptions)
+                .merge(requestOptions)
+                .build();
+    }
+
+    private boolean usesMaxCompletionTokens(String model) {
+        return isGpt5Family(model);
+    }
+
+    private boolean supportsCustomTemperature(String model) {
+        return !isGpt5Family(model);
+    }
+
+    private double resolveEffectiveTemperature(String model) {
+        return supportsCustomTemperature(model) ? defaultTemperature : 1.0d;
+    }
+
+    private boolean isGpt5Family(String model) {
+        return StringUtils.hasText(model) && model.toLowerCase(Locale.ROOT).startsWith("gpt-5");
+    }
+
+    private String summarizeOptions(OpenAiSdkChatOptions options) {
+        if (options == null) {
+            return "null";
+        }
+        return "model=%s, baseUrl=%s, timeout=%s, temperature=%s, maxTokens=%s, maxCompletionTokens=%s, topP=%s, reasoningEffort=%s, verbosity=%s, responseFormat=%s"
+                .formatted(
+                        options.getModel(),
+                        options.getBaseUrl(),
+                        options.getTimeout(),
+                        options.getTemperature(),
+                        options.getMaxTokens(),
+                        options.getMaxCompletionTokens(),
+                        options.getTopP(),
+                        options.getReasoningEffort(),
+                        options.getVerbosity(),
+                        options.getResponseFormat());
     }
 
     private String resolveModel(String modelPreference) {

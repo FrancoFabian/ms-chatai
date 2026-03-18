@@ -47,7 +47,6 @@ spring:
             chat:
                 options:
                     model: ${OPENAI_MODEL:gpt-4o-mini}
-                    temperature: ${OPENAI_TEMPERATURE:0.2}
 
 server:
     port: ${PORT:8080}
@@ -95,6 +94,7 @@ app:
         max-upload-mb: ${MAX_UPLOAD_MB:10}
 
     ai:
+        default-temperature: ${OPENAI_TEMPERATURE:0.2}
         flow:
             feedback-chat:
                 max-tokens: ${AI_FLOW_FEEDBACK_CHAT_MAX_TOKENS:220}
