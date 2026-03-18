@@ -10,7 +10,6 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.openaisdk.OpenAiSdkChatModel;
@@ -648,14 +647,24 @@ public class ChatTaskService {
                 summarizeOptions(requestOptions),
                 summarizeOptions(mergedOptions));
 
-        ResponseEntity<ChatResponse, String> responseEntity = chatClient.prompt()
+        ChatResponse chatResponse = chatClient.prompt()
             .system(systemPrompt)
             .user(userPrompt)
             .options(requestOptions)
             .call()
-            .responseEntity(String.class);
+            .chatResponse();
 
-        ChatResponse chatResponse = responseEntity.response();
+        String content = "";
+        if (chatResponse != null && chatResponse.getResult() != null
+                && chatResponse.getResult().getOutput() != null) {
+            content = chatResponse.getResult().getOutput().getText();
+            if (content == null) content = "";
+        }
+
+        logger.info("AI raw response flow={} model={} contentLength={} content={}",
+                flow.flowName(), selectedModel, content.length(),
+                content.length() > 500 ? content.substring(0, 500) + "..." : content);
+
         Usage usage = chatResponse != null && chatResponse.getMetadata() != null ? chatResponse.getMetadata().getUsage() : null;
         String resolvedModel = selectedModel;
         if (chatResponse != null && chatResponse.getMetadata() != null && StringUtils.hasText(chatResponse.getMetadata().getModel())) {
@@ -668,7 +677,6 @@ public class ChatTaskService {
                 && StringUtils.hasText(chatResponse.getResult().getMetadata().getFinishReason())) {
             finishReason = chatResponse.getResult().getMetadata().getFinishReason().toLowerCase(Locale.ROOT);
         }
-        String content = responseEntity.entity() == null ? "" : responseEntity.entity();
         int inputChars = systemPrompt.length() + userPrompt.length();
         return new ModelCallResult(
                 content,
