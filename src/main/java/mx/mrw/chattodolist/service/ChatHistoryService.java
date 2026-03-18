@@ -142,7 +142,7 @@ public class ChatHistoryService {
         message.setSender(sender);
         message.setText(text);
         message.setTaskId(normalizeTaskId(request.taskId()));
-        chatMessageRepository.save(message);
+        chatMessageRepository.saveAndFlush(message);
 
         List<ChatMessageAttachmentResponse> attachmentResponses = saveMessageAttachments(messageId, request.attachments());
 
@@ -153,13 +153,8 @@ public class ChatHistoryService {
         session.setUpdatedAt(Instant.now());
         chatSessionRepository.save(session);
 
-        return new ChatMessageResponse(
-                message.getId(),
-                message.getCreatedAt(),
-                message.getSender(),
-                message.getText(),
-                message.getTaskId(),
-                attachmentResponses);
+        ChatMessageEntity persistedMessage = chatMessageRepository.findById(messageId).orElse(message);
+        return mapExistingMessage(persistedMessage);
     }
 
     @Transactional
