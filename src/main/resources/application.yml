@@ -48,7 +48,6 @@ spring:
                 options:
                     model: ${OPENAI_MODEL:gpt-4o-mini}
                     temperature: ${OPENAI_TEMPERATURE:0.2}
-                    max-tokens: ${OPENAI_MAX_TOKENS:400}
 
 server:
     port: ${PORT:8080}

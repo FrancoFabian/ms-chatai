@@ -627,7 +627,6 @@ public class ChatTaskService {
         OpenAiSdkChatOptions options = OpenAiSdkChatOptions.builder()
             .model(selectedModel)
             .temperature(temperature)
-            .maxTokens(maxTokens)
             .timeout(Duration.ofMillis(httpProperties.getReadTimeoutMs()))
             .responseFormat(OpenAiSdkChatModel.ResponseFormat.builder()
                 .type(OpenAiSdkChatModel.ResponseFormat.Type.JSON_OBJECT)
