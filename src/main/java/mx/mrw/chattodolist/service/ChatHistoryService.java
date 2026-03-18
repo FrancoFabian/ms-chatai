@@ -107,10 +107,11 @@ public class ChatHistoryService {
         entity.setSubject(subject);
         entity.setTitle(resolveTitle(request == null ? null : request.title()));
         entity.setStatus(STATUS_ACTIVE);
-        chatSessionRepository.save(entity);
+        chatSessionRepository.saveAndFlush(entity);
 
         appendWelcomeMessage(sessionId);
-        return mapSingleSession(entity);
+        ChatSessionEntity persisted = chatSessionRepository.findByIdAndSubject(sessionId, subject).orElse(entity);
+        return mapSingleSession(persisted);
     }
 
     @Transactional
